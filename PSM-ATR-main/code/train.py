@@ -55,11 +55,7 @@ med_freq=get_med_freq(data,size_med_voc).to(device)
 ehr_A_gpu=torch.tensor(ehr_A).to(device)
 ddi_A_gpu=torch.tensor(ddi_A).to(device)
 
-# ========================================================================
-# 步骤1: 创建初始模型对象
-# ========================================================================
-# 关键点: 这个model对象将在整个训练过程中使用（预训练+微调）
-# ========================================================================
+
 model = MyNet(emb_dim=args.dim, k=args.visit, voc_size=voc_size,ehr_adj=ehr_A_gpu,ddi_adj=ddi_A_gpu).to(device)
 # model.load_state_dict(torch.load('F:\code_2026\TPR-MR1\TPR-MR-main\weights\\best_model.pth'))
 
@@ -180,35 +176,9 @@ def get_metrics_on_test_data(model):
 
 
 def random_mask_word(seq, vocab_size, mask_prob=0.15):
-    """
-    随机对序列中的 token 做 mask，参考 BERT 的 80/10/10 策略：
-        - 80%：替换为“mask”token（这里用 vocab 内的随机 token 近似）
-        - 10%：保持原 token 不变
-        - 10%：替换为随机 token
-    注意：这里没有显式的 [MASK] token，为避免越界和索引错误，
-    统一使用 vocab 内的随机 token 作为“mask”的近似实现。
-
-    参数:
-        seq: 序列列表
-        vocab_size: 词汇表大小
-        mask_prob: 掩码概率
-    """
-    masked_seq = seq.copy()
-    for i, _ in enumerate(masked_seq):
-        prob = random.random()
-        # 以 mask_prob 的概率对该位置进行扰动
-        if prob < mask_prob:
-            prob /= mask_prob
-            # 80%：使用“mask”token（这里用随机 token 近似）
-            if prob < 0.8:
-                masked_seq[i] = random.randrange(vocab_size)
-            # 10%：保持原 token 不变
-            elif prob < 0.9:
-                pass
-            # 10%：替换为随机 token
-            else:
-                masked_seq[i] = random.randrange(vocab_size)
-        # 否则：保持原样
+   ...
+  ...
+...
     return masked_seq
 
 def mask_batch_data(batch_data, mask_prob, voc_size):
@@ -222,14 +192,8 @@ def mask_batch_data(batch_data, mask_prob, voc_size):
         mask_prob: 掩码概率
         voc_size: (d_voc_size, p_voc_size, m_voc_size)
     """
-    d_size, p_size = voc_size[0], voc_size[1]
-    masked_data = []
-    for visit in batch_data:
-        # 对诊断和手术进行mask
-        diag = random_mask_word(visit[0].copy(), d_size, mask_prob)
-        pro = random_mask_word(visit[1].copy(), p_size, mask_prob)
-        # 预训练阶段只mask诊断和手术，不mask药物
-        masked_data.append([diag, pro])
+   ...
+...
     return masked_data
 
 def prepare_pretrain_data(data):
@@ -483,20 +447,7 @@ def main_mask(args, model, optimizer, data_train, data_val, voc_size, device):
     return model
 
 def train(model, optimizer):
-    """
-    微调训练函数
-    
-    参数:
-        model: 模型对象（如果进行了预训练，则包含预训练权重）
-        optimizer: 优化器对象（使用微调学习率）
-    
-    说明:
-        - 如果进行了预训练，传入的model对象已经包含预训练权重
-        - 第699行: model.state_dict()获取的是预训练后的模型状态
-        - 第709行: model()调用使用的是预训练后的权重进行前向传播
-        - 第712-714行: optimizer更新的是预训练后的模型参数
-        - 整个过程无需单独加载预训练模型，因为使用的是同一个model对象
-    """
+
     log_file=create_log_file('train_mynet')
     log(log_file, 'config: ' + str(args) + '\n')
     log(log_file, "traing...")
@@ -587,12 +538,6 @@ except Exception as e:
     print(f"Error in pretraining stage: {e}")
     raise
 
-# ========================================================================
-# 步骤5: 微调阶段 - 直接使用预训练后的model对象
-# ========================================================================
-# 关键点: 传入的model对象已经包含预训练权重，直接用于微调
-# ========================================================================
-# 步骤5: 调用train函数，传入已经预训练过的model对象
 # 注意: model对象在预训练阶段已经被更新，包含预训练权重
 best_model_params = train(model, optimizer)
 if args.save_model > 0:
